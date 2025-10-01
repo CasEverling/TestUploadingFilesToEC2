@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -I/usr/include -O2
+CXXFLAGS = -std=c++20 -Wall -I/usr/include -O2
 
 # Libraries (Boost, OpenSSL, pthread)
 LDLIBS = -lboost_system -lssl -lcrypto -lpthread
