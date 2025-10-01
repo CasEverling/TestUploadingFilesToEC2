@@ -2,8 +2,8 @@
 CXX = g++
 CXXFLAGS = -std=c++20 -Wall -I/usr/include -O2
 
-# Libraries (Boost, OpenSSL, pthread)
-LDLIBS = -lboost_system -lcrypto -lpthread
+# Libraries (Boost, pthread)
+LDLIBS = -lboost_system -lboost_json -lpthread
 
 # Source and target
 SRC = communication.cpp
