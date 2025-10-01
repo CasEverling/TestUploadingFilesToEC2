@@ -22,8 +22,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
         // Simple in-memory data store
         static inline json::object users_ = {
-            {"1", {{"id", 1}, {"name", "Alice"}}},
-            {"2", {{"id", 2}, {"name", "Bob"}}}
+            {"1", {{"echo", "HelloWorld"}}}
         };
 
         json::object handle_get_users() {
