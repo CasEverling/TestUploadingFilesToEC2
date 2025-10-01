@@ -1,9 +1,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/ssl.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/json.hpp>
 #include <iostream>
 #include <memory>
@@ -12,14 +10,13 @@
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
-namespace ssl = boost::asio::ssl;
 namespace json = boost::json;
 using tcp = net::ip::tcp;
 
-// Simple HTTPS session
+// Simple HTTP session
 class Session : public std::enable_shared_from_this<Session> {
     private:
-        beast::ssl_stream<beast::tcp_stream> stream_;
+        beast::tcp_stream stream_;
         beast::flat_buffer buffer_;
         http::request<http::string_body> req_;
 
@@ -114,7 +111,7 @@ class Session : public std::enable_shared_from_this<Session> {
             
             http::async_write(stream_, *sp,
                 [self, sp](beast::error_code ec, std::size_t) {
-                    self->stream_.async_shutdown([](beast::error_code){});
+                    self->stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
                 });
         }
 
@@ -129,48 +126,26 @@ class Session : public std::enable_shared_from_this<Session> {
                 });
         }
 
-        void ssl_handshake() {
-            auto self = shared_from_this();
-            
-            stream_.async_handshake(ssl::stream_base::server,
-                [self](beast::error_code ec) {
-                    if (!ec) {
-                        self->read_request();
-                    }
-                });
-        }
-
     public:
-        Session(tcp::socket&& socket, ssl::context& ctx)
-            : stream_(std::move(socket), ctx) {}
+        Session(tcp::socket&& socket)
+            : stream_(std::move(socket)) {}
 
         void start() {
-            ssl_handshake();
+            read_request();
         }
 };
 
-// Simple HTTPS Server
+// Simple HTTP Server
 class RestApiServer {
     private:
         net::io_context ioc_;
-        ssl::context ssl_ctx_;
         tcp::acceptor acceptor_;
-
-        void load_certificates() {
-            ssl_ctx_.set_options(
-                ssl::context::default_workarounds |
-                ssl::context::no_sslv2 |
-                ssl::context::single_dh_use);
-
-            ssl_ctx_.use_certificate_chain_file("cert.pem");
-            ssl_ctx_.use_private_key_file("key.pem", ssl::context::pem);
-        }
 
         void accept_connection() {
             acceptor_.async_accept(
                 [this](beast::error_code ec, tcp::socket socket) {
                     if (!ec) {
-                        std::make_shared<Session>(std::move(socket), ssl_ctx_)->start();
+                        std::make_shared<Session>(std::move(socket))->start();
                     }
                     accept_connection();
                 });
@@ -178,13 +153,10 @@ class RestApiServer {
 
     public:
         RestApiServer(unsigned short port)
-            : ssl_ctx_(ssl::context::tlsv12_server),
-            acceptor_(ioc_, tcp::endpoint(tcp::v4(), port)) {
-            load_certificates();
-        }
+            : acceptor_(ioc_, tcp::endpoint(tcp::v4(), port)) {}
 
         void run() {
-            std::cout << "REST API running on https://localhost:" 
+            std::cout << "REST API running on http://localhost:" 
                     << acceptor_.local_endpoint().port() << std::endl;
             std::cout << "\nEndpoints:" << std::endl;
             std::cout << "  GET    /api/users     - List all users" << std::endl;
@@ -198,7 +170,7 @@ class RestApiServer {
 
 int main() {
     try {
-        RestApiServer server(8443);
+        RestApiServer server(8080);
         server.run();
     } catch (std::exception const& e) {
         std::cerr << "Error: " << e.what() << std::endl;
